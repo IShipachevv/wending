@@ -8,7 +8,7 @@ app = Flask(__name__)
 
 
 # Путь к базе данных
-DB_PATH = os.path.join(os.path.dirname(__file__), 'databaza.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), 'database.db')
 
 
 def get_db_connection():
