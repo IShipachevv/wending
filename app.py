@@ -1,42 +1,35 @@
 from flask import Flask, render_template, request, jsonify
 import sqlite3
 import os
-
+from flask_admin import Admin
+from flask_admin.contrib.sqla import ModelView
+# Замените User на вашу модель
+from flask_sqlalchemy import SQLAlchemy
 import requests  # Не забудь добавить в начало файла
 
 app = Flask(__name__)
 
+# Настраиваем путь к базе данных
+# Если мы на Render, возьмем ссылку из DATABASE_URL. Если дома — создаем файл wedding.db
+uri = os.environ.get('DATABASE_URL', 'sqlite:///wedding.db')
 
-# Путь к базе данных
-DB_PATH = os.path.join(os.path.dirname(__file__), 'database.db')
+# Фикс для Render: они дают ссылки postgres://, а SQLAlchemy просит postgresql://
+if uri and uri.startswith("postgres://"):
+    uri = uri.replace("postgres://", "postgresql://", 1)
 
+app.config['SQLALCHEMY_DATABASE_URI'] = uri
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-def get_db_connection():
-    """Устанавливает соединение с базой данных."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+# Инициализируем базу данных
+db = SQLAlchemy(app)
 
+class Guest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    status = db.Column(db.String(50))  # Например: 'приду', 'не приду'
 
-def init_db():
-    """Создает таблицу, если она еще не существует."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS guests (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            phone TEXT NOT NULL,
-            coming TEXT,
-            alcohol TEXT,
-            allergy_info TEXT,
-            wish TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
-    print("База данных инициализирована: " + DB_PATH)
+    def __repr__(self):
+        return f'<Guest {self.name}>'
 
 
 @app.route('/')
@@ -89,7 +82,6 @@ def rsvp():
 
 
 if __name__ == '__main__':
-    # Инициализируем БД перед запуском сервера
-    init_db()
-    # Запуск сервера на порту 5000
-    app.run(debug=True, port=5000)
+    with app.app_context():
+        db.create_all()  # Создаст таблицы, если их еще нет
+    app.run(debug=True)
